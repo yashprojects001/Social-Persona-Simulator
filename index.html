@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Social Persona Simulator</title>
+  <style>
+    :root{
+      --bg: #050816;
+      --panel: rgba(10, 18, 36, 0.72);
+      --panel2: rgba(10, 18, 36, 0.92);
+      --line: rgba(143, 182, 255, 0.18);
+      --text: #eaf2ff;
+      --muted: #8ca3c7;
+      --accent: #7cdaff;
+      --accent2: #8b7dff;
+      --good: #6bffb8;
+      --warn: #ffd36b;
+      --bad: #ff6b8a;
+      --shadow: 0 20px 60px rgba(0,0,0,0.45);
+      --radius: 24px;
+      --radius2: 18px;
+      --blur: blur(18px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at top left, rgba(124,218,255,0.12), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(139,125,255,0.14), transparent 28%),
+        radial-gradient(circle at center, rgba(12,18,36,1), rgba(4,7,16,1) 70%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    canvas#bg{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:-2;
+    }
+
+    .noise{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:0.08;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 3px 3px, 4px 4px;
+      mix-blend-mode: screen;
+      z-index:-1;
+    }
+
+    .shell{
+      height:100vh;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      padding:18px;
+      gap:18px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:16px 18px;
+      border:1px solid var(--line);
+      border-radius:20px;
+      background: linear-gradient(180deg, rgba(10,18,36,0.82), rgba(6,10,22,0.70));
+      backdrop-filter: var(--blur);
+      box-shadow: var(--shadow);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width: 260px;
+    }
+
+    .orb{
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, #fff, var(--accent) 35%, rgba(124,218,255,0.15) 70%);
+      box-shadow: 0 0 18px rgba(124,218,255,0.95), 0 0 40px rgba(139,125,255,0.35);
+      animation: pulse 2.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse{
+      0%,100%{ transform:scale(1); opacity:0.9; }
+      50%{ transform:scale(1.25); opacity:1; }
+    }
+
+    .brand h1{
+      margin:0;
+      font-size: clamp(18px, 2vw, 26px);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .brand .sub{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      letter-spacing:0.14em;
+      text-transform:uppercase;
+    }
+
+    .statusrow{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px 12px;
+    }
+
+    .chip{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius:999px;
+      font-size:12px;
+      letter-spacing:0.04em;
+      backdrop-filter: var(--blur);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+    }
+
+    .chip strong{ color:white; }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 290px minmax(0, 1.25fr) 330px;
+      gap:18px;
+      min-height:0;
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(10,18,36,0.80), rgba(5,9,18,0.72));
+      backdrop-filter: var(--blur);
+      box-shadow: var(--shadow);
+      min-height:0;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .panel::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(circle at top left, rgba(124,218,255,0.09), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(139,125,255,0.08), transparent 30%);
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .panel > *{ position:relative; z-index:1; }
+
+    .side{
+      padding:16px;
+      overflow:auto;
+    }
+
+    .side::-webkit-scrollbar,
+    .main::-webkit-scrollbar,
+    .right::-webkit-scrollbar{
+      width:10px;
+    }
+
+    .side::-webkit-scrollbar-thumb,
+    .main::-webkit-scrollbar-thumb,
+    .right::-webkit-scrollbar-thumb{
+      background: rgba(255,255,255,0.12);
+      border-radius:999px;
+      border:2px solid transparent;
+      background-clip:content-box;
+    }
+
+    .section{
+      margin-bottom:18px;
+      padding-bottom:18px;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+
+    .section:last-child{
+      border-bottom:none;
+      padding-bottom:0;
+      margin-bottom:0;
+    }
+
+    .section h2{
+      margin:0 0 12px;
+      font-size:14px;
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+      color: #dff2ff;
+    }
+
+    .persona-grid{
+      display:grid;
+      gap:10px;
+    }
+
+    .persona-btn{
+      width:100%;
+      text-align:left;
+      border:1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border-radius:18px;
+      padding:12px 12px;
+      cursor:pointer;
+      transition: 0.25s ease;
+      outline:none;
+    }
+
+    .persona-btn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(124,218,255,0.35);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+    }
+
+    .persona-btn.active{
+      background: linear-gradient(135deg, rgba(124,218,255,0.18), rgba(139,125,255,0.18));
+      border-color: rgba(124,218,255,0.45);
+      box-shadow: 0 0 0 1px rgba(124,218,255,0.12) inset;
+    }
+
+    .persona-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:4px;
+      font-weight:700;
+    }
+
+    .persona-meta{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    .slider-wrap{
+      display:grid;
+      gap:12px;
+    }
+
+    .slider-item{
+      display:grid;
+      gap:7px;
+    }
+
+    .slider-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      font-size:12px;
+      color: var(--muted);
+      letter-spacing:0.03em;
+    }
+
+    input[type="range"]{
+      width:100%;
+      accent-color: var(--accent);
+    }
+
+    textarea{
+      width:100%;
+      min-height:135px;
+      resize:vertical;
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:18px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      padding:14px;
+      font: inherit;
+      outline:none;
+      line-height:1.55;
+    }
+
+    textarea::placeholder{
+      color: rgba(234,242,255,0.42);
+    }
+
+    .btnrow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .action{
+      border:none;
+      border-radius:14px;
+      padding:11px 14px;
+      cursor:pointer;
+      font-weight:700;
+      letter-spacing:0.02em;
+      color:#05111f;
+      background: linear-gradient(135deg, #84e8ff, #b2a4ff);
+      transition:0.22s ease;
+      box-shadow: 0 14px 28px rgba(124,218,255,0.16);
+    }
+
+    .action:hover{ transform: translateY(-1px); }
+
+    .ghost{
+      border:1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      background: rgba(255,255,255,0.04);
+      box-shadow:none;
+    }
+
+    .main{
+      padding:16px;
+      overflow:auto;
+      display:grid;
+      gap:16px;
+      align-content:start;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap:16px;
+    }
+
+    .stage{
+      padding:18px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+      min-height: 320px;
+      display:grid;
+      align-content:start;
+      gap:14px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .stage::after{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background: conic-gradient(from 180deg, transparent, rgba(124,218,255,0.16), transparent 30%, rgba(139,125,255,0.16), transparent 68%, rgba(124,218,255,0.10), transparent);
+      animation: spin 18s linear infinite;
+      opacity:0.65;
+      filter: blur(18px);
+      pointer-events:none;
+    }
+
+    @keyframes spin{
+      to{ transform:rotate(360deg); }
+    }
+
+    .stage > *{ position:relative; z-index:1; }
+
+    .stage-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:14px;
+    }
+
+    .avatar{
+      width:84px;
+      height:84px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.26), rgba(255,255,255,0.04));
+      border:1px solid rgba(255,255,255,0.10);
+      box-shadow: inset 0 0 24px rgba(255,255,255,0.03), 0 14px 30px rgba(0,0,0,0.25);
+    }
+
+    .persona-name{
+      margin:0;
+      font-size:30px;
+      line-height:1.06;
+    }
+
+    .persona-desc{
+      margin:8px 0 0;
+      color: var(--muted);
+      line-height:1.55;
+      max-width: 52ch;
+    }
+
+    .tone-tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .tag{
+      font-size:11px;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      padding:8px 10px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.08);
+      color: #dce8ff;
+    }
+
+    .radar-box{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .radar{
+      width:100%;
+      aspect-ratio:1/1;
+      border-radius:50%;
+      position:relative;
+      margin: 2px auto 0;
+      background:
+        radial-gradient(circle at center, rgba(124,218,255,0.16), rgba(124,218,255,0.04) 24%, rgba(255,255,255,0.03) 25%, transparent 25.5%),
+        radial-gradient(circle at center, transparent 0 38%, rgba(255,255,255,0.03) 38.5% 39%, transparent 39.5% 63%, rgba(255,255,255,0.03) 63.5% 64%, transparent 64.5%),
+        radial-gradient(circle at center, rgba(5,10,20,1), rgba(8,16,30,1) 100%);
+      border:1px solid rgba(124,218,255,0.24);
+      overflow:hidden;
+      box-shadow: inset 0 0 30px rgba(124,218,255,0.10);
+    }
+
+    .radar::before{
+      content:"";
+      position:absolute;
+      inset:-5%;
+      background:
+        linear-gradient(90deg, transparent 49.5%, rgba(124,218,255,0.22) 50%, transparent 50.5%),
+        linear-gradient(transparent 49.5%, rgba(124,218,255,0.18) 50%, transparent 50.5%);
+      opacity:0.26;
+    }
+
+    .sweep{
+      position:absolute;
+      inset:0;
+      border-radius:50%;
+      background: conic-gradient(from 90deg, rgba(124,218,255,0.0), rgba(124,218,255,0.55), rgba(124,218,255,0.0) 18deg, transparent 360deg);
+      animation: sweep 3.8s linear infinite;
+      filter: blur(1px);
+      mix-blend-mode: screen;
+    }
+
+    @keyframes sweep{ to{ transform: rotate(360deg); } }
+
+    .blip{
+      position:absolute;
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      background: var(--good);
+      box-shadow: 0 0 10px rgba(107,255,184,1), 0 0 30px rgba(107,255,184,0.4);
+      opacity:0.9;
+      animation: blipPulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes blipPulse{
+      0%,100%{ transform:scale(0.75); opacity:0.7; }
+      50%{ transform:scale(1.15); opacity:1; }
+    }
+
+    .metric-list{
+      display:grid;
+      gap:12px;
+    }
+
+    .metric{
+      display:grid;
+      gap:7px;
+    }
+
+    .metric-top{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-size:12px;
+      color: var(--muted);
+    }
+
+    .bar{
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.06);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,0.08);
+    }
+
+    .fill{
+      height:100%;
+      width:50%;
+      border-radius:inherit;
+      background: linear-gradient(90deg, rgba(124,218,255,0.95), rgba(139,125,255,0.95));
+      box-shadow: 0 0 16px rgba(124,218,255,0.18);
+      transition: width 0.45s ease;
+    }
+
+    .fill.good{
+      background: linear-gradient(90deg, #69f8b7, #8be9ff);
+    }
+
+    .fill.warn{
+      background: linear-gradient(90deg, #ffd36b, #ff8f6b);
+    }
+
+    .fill.bad{
+      background: linear-gradient(90deg, #ff6b8a, #ff8fda);
+    }
+
+    .response-panel{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:16px;
+    }
+
+    .response-box{
+      padding:18px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      min-height: 260px;
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:12px;
+    }
+
+    .response-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      color:var(--muted);
+      font-size:12px;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+    }
+
+    .response{
+      white-space:pre-wrap;
+      line-height:1.7;
+      font-size:15px;
+      color: #f7fbff;
+      min-height: 160px;
+      padding-right:4px;
+    }
+
+    .cursor{
+      display:inline-block;
+      width:8px;
+      height:1.1em;
+      vertical-align:-3px;
+      background: var(--accent);
+      margin-left:3px;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink{
+      50%{ opacity:0; }
+    }
+
+    .signature{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding-top:12px;
+      border-top:1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      font-size:12px;
+    }
+
+    .log{
+      display:grid;
+      gap:10px;
+    }
+
+    .log-item{
+      padding:12px 12px;
+      border-radius:16px;
+      background: rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      color:#edf5ff;
+      line-height:1.5;
+    }
+
+    .log-item small{
+      display:block;
+      color: var(--muted);
+      margin-bottom:6px;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+    }
+
+    .right{
+      padding:16px;
+      overflow:auto;
+      display:grid;
+      gap:16px;
+      align-content:start;
+    }
+
+    .insight{
+      padding:16px;
+      border-radius:20px;
+      background: rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+    }
+
+    .insight h3{
+      margin:0 0 10px;
+      font-size:14px;
+      letter-spacing:0.16em;
+      text-transform:uppercase;
+    }
+
+    .insight p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+    }
+
+    .mini{
+      display:grid;
+      gap:10px;
+    }
+
+    .mini-card{
+      padding:12px;
+      border-radius:16px;
+      background: rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+    }
+
+    .mini-card span{
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .mini-card strong{
+      font-size:13px;
+    }
+
+    .footer-note{
+      color:rgba(234,242,255,0.55);
+      font-size:12px;
+      line-height:1.6;
+    }
+
+    .secret{
+      opacity:0;
+      transform:translateY(6px);
+      transition:0.35s ease;
+      pointer-events:none;
+    }
+
+    .secret.show{
+      opacity:1;
+      transform:translateY(0);
+    }
+
+    @media (max-width: 1180px){
+      body{ overflow:auto; }
+      .shell{ height:auto; min-height:100vh; }
+      .layout{ grid-template-columns: 1fr; }
+      .panel{ min-height:auto; }
+      .hero{ grid-template-columns:1fr; }
+      .stage{ min-height:auto; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <div class="noise"></div>
+
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="orb"></div>
+        <div>
+          <h1>Social Persona Simulator</h1>
+          <span class="sub">Adaptive identity engine • dynamic social context • live response synthesis</span>
+        </div>
+      </div>
+
+      <div class="statusrow">
+        <div class="chip">MODE: <strong id="modeLabel">Friendly</strong></div>
+        <div class="chip">SOCIAL ENERGY: <strong id="energyChip">72%</strong></div>
+        <div class="chip">SYSTEM TIME: <strong id="clock">--:--:--</strong></div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel side">
+        <div class="section">
+          <h2>Persona Matrix</h2>
+          <div class="persona-grid" id="personaGrid"></div>
+        </div>
+
+        <div class="section">
+          <h2>Context Controls</h2>
+          <div class="slider-wrap">
+            <div class="slider-item">
+              <div class="slider-head"><span>Stress</span><span id="stressVal">35</span></div>
+              <input id="stress" type="range" min="0" max="100" value="35">
+            </div>
+            <div class="slider-item">
+              <div class="slider-head"><span>Energy</span><span id="energyVal">72</span></div>
+              <input id="energy" type="range" min="0" max="100" value="72">
+            </div>
+            <div class="slider-item">
+              <div class="slider-head"><span>Familiarity</span><span id="familiarityVal">42</span></div>
+              <input id="familiarity" type="range" min="0" max="100" value="42">
+            </div>
+            <div class="slider-item">
+              <div class="slider-head"><span>Stakes</span><span id="stakesVal">68</span></div>
+              <input id="stakes" type="range" min="0" max="100" value="68">
+            </div>
+            <div class="slider-item">
+              <div class="slider-head"><span>Audience Size</span><span id="crowdVal">18</span></div>
+              <input id="crowd" type="range" min="1" max="200" value="18">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Scenario Input</h2>
+          <textarea id="scenario" placeholder="Describe the social situation... Example: I need to introduce myself to a new team during a formal meeting."></textarea>
+          <div style="height:12px"></div>
+          <div class="btnrow">
+            <button class="action" id="generateBtn">Generate Persona Response</button>
+            <button class="action ghost" id="surpriseBtn">Random Scenario</button>
+            <button class="action ghost" id="cycleBtn">Cycle Persona</button>
+            <button class="action ghost" id="resetBtn">Reset</button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel main">
+        <div class="hero">
+          <div class="stage">
+            <div class="stage-top">
+              <div style="display:flex;gap:16px;align-items:flex-start;">
+                <div class="avatar" id="avatar">🙂</div>
+                <div>
+                  <h2 class="persona-name" id="personaName">Friendly</h2>
+                  <p class="persona-desc" id="personaDesc">
+                    Warm, approachable, supportive, and easy to talk to. Balanced tone with empathy and light energy.
+                  </p>
+                  <div class="tone-tags" id="toneTags"></div>
+                </div>
+              </div>
+              <div class="chip">READ ROOM: <strong id="readRoom">Stable</strong></div>
+            </div>
+
+            <div class="response-panel">
+              <div class="response-box">
+                <div class="response-head">
+                  <span>Persona Response Engine</span>
+                  <span id="responseMeta">Idle</span>
+                </div>
+                <div class="response" id="response">
+                  Choose a persona, adjust the context, then generate a response.<span class="cursor"></span>
+                </div>
+                <div class="signature">
+                  <span id="signatureLeft">Tone: adaptive</span>
+                  <span id="signatureRight">Confidence: 0%</span>
+                </div>
+              </div>
+
+              <div class="log" id="conversationLog"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel right">
+        <div class="radar-box">
+          <div class="section" style="margin-bottom:0;padding-bottom:0;">
+            <h2>Persona Radar</h2>
+            <div class="radar">
+              <div class="sweep"></div>
+              <div class="blip" id="blip"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Live Metrics</h2>
+          <div class="metric-list">
+            <div class="metric">
+              <div class="metric-top"><span>Charisma</span><span id="charismaVal">71%</span></div>
+              <div class="bar"><div class="fill" id="charismaBar"></div></div>
+            </div>
+            <div class="metric">
+              <div class="metric-top"><span>Empathy</span><span id="empathyVal">68%</span></div>
+              <div class="bar"><div class="fill good" id="empathyBar"></div></div>
+            </div>
+            <div class="metric">
+              <div class="metric-top"><span>Assertiveness</span><span id="assertVal">62%</span></div>
+              <div class="bar"><div class="fill warn" id="assertBar"></div></div>
+            </div>
+            <div class="metric">
+              <div class="metric-top"><span>Adaptability</span><span id="adaptVal">79%</span></div>
+              <div class="bar"><div class="fill" id="adaptBar"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Analysis</h2>
+          <div class="mini">
+            <div class="mini-card"><div><strong id="suggestPersona">Suggested: Friendly</strong><br><span>Best fit for this context</span></div><div>🧭</div></div>
+            <div class="mini-card"><div><strong id="riskLevel">Risk: Moderate</strong><br><span>Social tension forecast</span></div><div>⚠️</div></div>
+            <div class="mini-card"><div><strong id="opportunity">Opportunity: Strong</strong><br><span>Chance to leave a good impression</span></div><div>✨</div></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Hidden Layer</h2>
+          <div class="footer-note">
+            Type keywords like <b>interview</b>, <b>presentation</b>, <b>conflict</b>, <b>networking</b>, or <b>date</b> to unlock special behaviors.
+          </div>
+          <div class="insight secret" id="secretBox" style="margin-top:12px;">
+            <h3>Secret Persona Unlocked</h3>
+            <p id="secretText">A hidden mode has been discovered.</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const personas = [
+      {
+        id: "friendly",
+        name: "Friendly",
+        emoji: "🙂",
+        accent: "#7cdaff",
+        accent2: "#8b7dff",
+        desc: "Warm, approachable, supportive, and easy to talk to. Balanced tone with empathy and light energy.",
+        tags: ["warm", "supportive", "easygoing", "listener"],
+        voice: {
+          opener: "I’d keep it natural and welcoming.",
+          style: "Use inclusive language, soft transitions, and light reassurance.",
+          closer: "The goal is to make the other person feel comfortable."
+        },
+        traits: { charisma: 71, empathy: 88, assertiveness: 52, adaptability: 84 }
+      },
+      {
+        id: "professional",
+        name: "Professional",
+        emoji: "🧑‍💼",
+        accent: "#84e8ff",
+        accent2: "#b2a4ff",
+        desc: "Structured, concise, polished, and focused on clarity. Best for formal meetings, interviews, and presentations.",
+        tags: ["formal", "structured", "clear", "credible"],
+        voice: {
+          opener: "I’d keep the message concise and purpose-driven.",
+          style: "Use clean structure, measured confidence, and low-noise phrasing.",
+          closer: "The response should feel reliable and intentional."
+        },
+        traits: { charisma: 68, empathy: 60, assertiveness: 81, adaptability: 77 }
+      },
+      {
+        id: "confident",
+        name: "Confident",
+        emoji: "😎",
+        accent: "#6bffb8",
+        accent2: "#7cdaff",
+        desc: "Direct, persuasive, energetic, and decisive. Great for leadership moments, pitching, and high-stakes speaking.",
+        tags: ["bold", "decisive", "high-energy", "leadership"],
+        voice: {
+          opener: "I’d lead with certainty and momentum.",
+          style: "Use decisive wording, strong framing, and clear action cues.",
+          closer: "The message should inspire trust and movement."
+        },
+        traits: { charisma: 85, empathy: 58, assertiveness: 90, adaptability: 73 }
+      },
+      {
+        id: "mysterious",
+        name: "Mysterious",
+        emoji: "🕶️",
+        accent: "#ff9bd5",
+        accent2: "#8b7dff",
+        desc: "Cryptic, calm, poetic, and slightly unreadable. Great for intrigue, aura, and subtle influence.",
+        tags: ["cryptic", "poetic", "reserved", "intriguing"],
+        voice: {
+          opener: "I’d keep the surface calm and let the message breathe.",
+          style: "Use short lines, subtle implications, and elegant restraint.",
+          closer: "A little ambiguity can create a stronger impression."
+        },
+        traits: { charisma: 76, empathy: 63, assertiveness: 66, adaptability: 82 }
+      }
+    ];
+
+    const randomScenarios = [
+      "I need to introduce myself to a new team during a formal meeting.",
+      "I met someone interesting at a college event and want to start a conversation.",
+      "I need to disagree politely with a friend who is being unfair.",
+      "I am giving a presentation in front of a large audience.",
+      "I want to comfort someone who is having a bad day.",
+      "I need to ask for help without sounding weak.",
+      "I am going on a first date and want to make a good impression.",
+      "I need to network with a senior person after a seminar."
+    ];
+
+    const els = {
+      personaGrid: document.getElementById("personaGrid"),
+      personaName: document.getElementById("personaName"),
+      personaDesc: document.getElementById("personaDesc"),
+      toneTags: document.getElementById("toneTags"),
+      avatar: document.getElementById("avatar"),
+      scenario: document.getElementById("scenario"),
+      generateBtn: document.getElementById("generateBtn"),
+      surpriseBtn: document.getElementById("surpriseBtn"),
+      cycleBtn: document.getElementById("cycleBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      response: document.getElementById("response"),
+      responseMeta: document.getElementById("responseMeta"),
+      signatureLeft: document.getElementById("signatureLeft"),
+      signatureRight: document.getElementById("signatureRight"),
+      conversationLog: document.getElementById("conversationLog"),
+      modeLabel: document.getElementById("modeLabel"),
+      energyChip: document.getElementById("energyChip"),
+      clock: document.getElementById("clock"),
+      stress: document.getElementById("stress"),
+      energy: document.getElementById("energy"),
+      familiarity: document.getElementById("familiarity"),
+      stakes: document.getElementById("stakes"),
+      crowd: document.getElementById("crowd"),
+      stressVal: document.getElementById("stressVal"),
+      energyVal: document.getElementById("energyVal"),
+      familiarityVal: document.getElementById("familiarityVal"),
+      stakesVal: document.getElementById("stakesVal"),
+      crowdVal: document.getElementById("crowdVal"),
+      charismaBar: document.getElementById("charismaBar"),
+      empathyBar: document.getElementById("empathyBar"),
+      assertBar: document.getElementById("assertBar"),
+      adaptBar: document.getElementById("adaptBar"),
+      charismaVal: document.getElementById("charismaVal"),
+      empathyVal: document.getElementById("empathyVal"),
+      assertVal: document.getElementById("assertVal"),
+      adaptVal: document.getElementById("adaptVal"),
+      suggestPersona: document.getElementById("suggestPersona"),
+      riskLevel: document.getElementById("riskLevel"),
+      opportunity: document.getElementById("opportunity"),
+      readRoom: document.getElementById("readRoom"),
+      blip: document.getElementById("blip"),
+      secretBox: document.getElementById("secretBox"),
+      secretText: document.getElementById("secretText"),
+    };
+
+    let activePersonaIndex = 1;
+    let typingTimer = null;
+    let activeTheme = {
+      accent: "#84e8ff",
+      accent2: "#b2a4ff"
+    };
+
+    function clamp(n, min, max){
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function setTheme(persona){
+      activeTheme = { accent: persona.accent, accent2: persona.accent2 };
+      document.documentElement.style.setProperty("--accent", persona.accent);
+      document.documentElement.style.setProperty("--accent2", persona.accent2);
+    }
+
+    function buildPersonaCards(){
+      els.personaGrid.innerHTML = "";
+      personas.forEach((p, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "persona-btn" + (idx === activePersonaIndex ? " active" : "");
+        btn.innerHTML = `
+          <div class="persona-title">
+            <span>${p.emoji} ${p.name}</span>
+            <span style="color: var(--muted); font-size: 12px;">#${String(idx + 1).padStart(2, "0")}</span>
+          </div>
+          <div class="persona-meta">${p.desc}</div>
+        `;
+        btn.addEventListener("click", () => {
+          setPersona(idx);
+          generateAutoInsight();
+        });
+        els.personaGrid.appendChild(btn);
+      });
+    }
+
+    function setPersona(index){
+      activePersonaIndex = (index + personas.length) % personas.length;
+      const p = personas[activePersonaIndex];
+      setTheme(p);
+      els.personaName.textContent = p.name;
+      els.personaDesc.textContent = p.desc;
+      els.avatar.textContent = p.emoji;
+      els.modeLabel.textContent = p.name;
+      els.toneTags.innerHTML = p.tags.map(tag => `<span class="tag">${tag}</span>`).join("");
+      buildPersonaCards();
+      updateMetricsPreview();
+      updateReadRoom();
+      pulseRadar();
+    }
+
+    function updateInputs(){
+      els.stressVal.textContent = els.stress.value;
+      els.energyVal.textContent = els.energy.value;
+      els.familiarityVal.textContent = els.familiarity.value;
+      els.stakesVal.textContent = els.stakes.value;
+      els.crowdVal.textContent = els.crowd.value;
+      els.energyChip.textContent = `${els.energy.value}%`;
+    }
+
+    function calculateProfile(){
+      const persona = personas[activePersonaIndex];
+      const stress = +els.stress.value;
+      const energy = +els.energy.value;
+      const familiarity = +els.familiarity.value;
+      const stakes = +els.stakes.value;
+      const crowd = +els.crowd.value;
+
+      const socialEase = clamp(Math.round(
+        persona.traits.empathy * 0.28 +
+        persona.traits.charisma * 0.28 +
+        persona.traits.adaptability * 0.20 +
+        energy * 0.12 +
+        familiarity * 0.08 -
+        stress * 0.12 -
+        Math.min(crowd, 180) * 0.03
+      ), 0, 100);
+
+      const influence = clamp(Math.round(
+        persona.traits.assertiveness * 0.35 +
+        persona.traits.charisma * 0.27 +
+        stakes * 0.10 +
+        energy * 0.08 -
+        stress * 0.10 +
+        familiarity * 0.05
+      ), 0, 100);
+
+      const warmth = clamp(Math.round(
+        persona.traits.empathy * 0.42 +
+        familiarity * 0.16 +
+        energy * 0.10 -
+        stakes * 0.05 +
+        (persona.id === "mysterious" ? -8 : 0)
+      ), 0, 100);
+
+      const clarity = clamp(Math.round(
+        persona.id === "professional" ? 90 :
+        persona.id === "confident" ? 82 :
+        persona.id === "friendly" ? 77 : 68
+      ), 0, 100);
+
+      const risk = clamp(Math.round(
+        stress * 0.42 +
+        stakes * 0.24 +
+        Math.max(0, crowd - 20) * 0.18 -
+        energy * 0.16 +
+        (persona.id === "mysterious" ? 7 : 0)
+      ), 0, 100);
+
+      return { socialEase, influence, warmth, clarity, risk, stress, energy, familiarity, stakes, crowd };
+    }
+
+    function updateMetricsPreview(){
+      const p = personas[activePersonaIndex];
+      const profile = calculateProfile();
+
+      const charisma = clamp(Math.round((p.traits.charisma * 0.65 + profile.influence * 0.35)), 0, 100);
+      const empathy = clamp(Math.round((p.traits.empathy * 0.65 + profile.warmth * 0.35)), 0, 100);
+      const assertiveness = clamp(Math.round((p.traits.assertiveness * 0.6 + profile.influence * 0.4)), 0, 100);
+      const adaptability = clamp(Math.round((p.traits.adaptability * 0.62 + profile.socialEase * 0.38)), 0, 100);
+
+      setBar(els.charismaBar, els.charismaVal, charisma);
+      setBar(els.empathyBar, els.empathyVal, empathy, "good");
+      setBar(els.assertBar, els.assertVal, assertiveness, profile.risk > 70 ? "bad" : "warn");
+      setBar(els.adaptBar, els.adaptVal, adaptability);
+
+      els.suggestPersona.textContent = `Suggested: ${suggestPersona(profile, p)}`;
+      els.riskLevel.textContent = `Risk: ${riskLabel(profile.risk)}`;
+      els.opportunity.textContent = `Opportunity: ${opportunityLabel(profile)}`;
+    }
+
+    function setBar(bar, label, value, forcedClass){
+      bar.style.width = `${value}%`;
+      bar.className = "fill";
+      if (forcedClass) bar.classList.add(forcedClass);
+      label.textContent = `${value}%`;
+    }
+
+    function suggestPersona(profile, persona){
+      const arr = [
+        { name: "Professional", score: profile.stakes + (persona.id === "professional" ? 18 : 0) + (profile.crowd > 30 ? 12 : 0) },
+        { name: "Friendly", score: profile.familiarity + profile.warmth + (persona.id === "friendly" ? 16 : 0) },
+        { name: "Confident", score: profile.influence + (profile.risk < 40 ? 10 : 0) + (persona.id === "confident" ? 18 : 0) },
+        { name: "Mysterious", score: profile.socialEase * 0.5 + (profile.risk < 55 ? 10 : 0) + (persona.id === "mysterious" ? 16 : 0) }
+      ];
+      arr.sort((a,b) => b.score - a.score);
+      return arr[0].name;
+    }
+
+    function riskLabel(risk){
+      if (risk >= 75) return "High";
+      if (risk >= 45) return "Moderate";
+      return "Low";
+    }
+
+    function opportunityLabel(profile){
+      const value = clamp(Math.round((100 - profile.risk) * 0.55 + profile.socialEase * 0.45), 0, 100);
+      if (value >= 75) return "Strong";
+      if (value >= 45) return "Fair";
+      return "Limited";
+    }
+
+    function updateReadRoom(){
+      const p = personas[activePersonaIndex];
+      const scenario = els.scenario.value.toLowerCase();
+      const profile = calculateProfile();
+      let room = "Stable";
+
+      if (profile.risk > 75) room = "Tense";
+      else if (profile.socialEase > 72) room = "Open";
+      else if (profile.influence > 72) room = "Responsive";
+      else if (profile.warmth > 72) room = "Comfortable";
+
+      if (scenario.includes("interview")) room = "Evaluative";
+      if (scenario.includes("conflict")) room = "Fragile";
+      if (scenario.includes("date")) room = "Personal";
+      if (scenario.includes("presentation")) room = "High Visibility";
+      if (scenario.includes("network")) room = "Opportunity Rich";
+
+      els.readRoom.textContent = room;
+      els.signatureLeft.textContent = `Tone: ${p.name.toLowerCase()} / ${room.toLowerCase()}`;
+      els.signatureRight.textContent = `Confidence: ${clamp(Math.round(profile.socialEase * 0.55 + profile.influence * 0.45), 0, 100)}%`;
+    }
+
+    function generateResponse(){
+      const persona = personas[activePersonaIndex];
+      const profile = calculateProfile();
+      const scenario = els.scenario.value.trim() || "A social situation is happening.";
+      const mode = determineMode(scenario, profile, persona);
+
+      const response = buildResponse(persona, profile, scenario, mode);
+      const meta = `${mode} • ${persona.name} • ${profile.risk < 45 ? "low friction" : profile.risk < 75 ? "moderate tension" : "high pressure"}`;
+      typeResponse(response, meta);
+      pushLog(scenario, persona.name, mode, profile);
+      maybeUnlockSecret(scenario, profile, persona);
+      updateReadRoom();
+      pulseRadar();
+    }
+
+    function determineMode(scenario, profile, persona){
+      const s = scenario.toLowerCase();
+      if (s.includes("interview")) return "Interview Mode";
+      if (s.includes("presentation")) return "Presentation Mode";
+      if (s.includes("conflict")) return "De-escalation Mode";
+      if (s.includes("date")) return "Connection Mode";
+      if (s.includes("network")) return "Networking Mode";
+      if (profile.risk > 80) return "Pressure Mode";
+      if (profile.socialEase > 75) return "Flow Mode";
+      if (persona.id === "mysterious") return "Ambiguity Mode";
+      return "Adaptive Mode";
+    }
+
+    function buildResponse(persona, profile, scenario, mode){
+      const s = scenario.toLowerCase();
+
+      let opening = persona.voice.opener;
+      let style = persona.voice.style;
+      let closer = persona.voice.closer;
+
+      let contextLine = "";
+      if (s.includes("interview")) {
+        contextLine = "Open with a crisp introduction, then connect your strengths to the exact role or room.";
+      } else if (s.includes("presentation")) {
+        contextLine = "Lead with a clear hook, keep your pacing steady, and land one memorable message.";
+      } else if (s.includes("conflict")) {
+        contextLine = "Stay calm, validate the other side, and move the conversation toward a solution.";
+      } else if (s.includes("date")) {
+        contextLine = "Be present, playful, and specific. Small honest details feel more real than big performance lines.";
+      } else if (s.includes("network")) {
+        contextLine = "Ask one thoughtful question, mention a shared context, and keep the exchange light but memorable.";
+      } else {
+        contextLine = "Keep your body language open and your wording aligned with the room's energy.";
+      }
+
+      const confidence = clamp(Math.round(profile.socialEase * 0.55 + profile.influence * 0.45), 0, 100);
+
+      const keywordBoost =
+        s.includes("interview") ? "professional" :
+        s.includes("presentation") ? "structured" :
+        s.includes("conflict") ? "calm" :
+        s.includes("date") ? "warm" :
+        s.includes("network") ? "curious" :
+        profile.socialEase > 72 ? "fluid" : "adaptable";
+
+      const emotionalHue = profile.risk > 70 ? "careful" : profile.warmth > 70 ? "kind" : profile.influence > 70 ? "firm" : "balanced";
+
+      const secretBeat = persona.id === "mysterious"
+        ? "Leave one idea slightly unsaid. That creates gravity."
+        : persona.id === "confident"
+          ? "Speak like the outcome is already in motion."
+          : persona.id === "professional"
+            ? "Trim every unnecessary word."
+            : "Make the other person feel seen quickly.";
+
+      return [
+        `MODE: ${mode}`,
+        "",
+        `${opening}`,
+        `${style}`,
+        "",
+        `Scenario read: ${scenario}`,
+        `Context level: ${profile.stakes}% stakes, ${profile.crowd} people, stress ${profile.stress}%, energy ${profile.energy}%.`,
+        "",
+        `Suggested social color: ${keywordBoost}.`,
+        `Approach: ${emotionalHue}.`,
+        "",
+        `${contextLine}`,
+        `${secretBeat}`,
+        "",
+        `${closer}`,
+        `Confidence estimate: ${confidence}%`,
+      ].join("\n");
+    }
+
+    function typeResponse(text, meta){
+      clearTimeout(typingTimer);
+      els.responseMeta.textContent = "Synthesizing...";
+      els.response.innerHTML = "";
+      const chars = [...text];
+      let i = 0;
+
+      const step = () => {
+        if (i < chars.length){
+          const safe = chars[i] === "\n" ? "<br>" : escapeHtml(chars[i]);
+          els.response.innerHTML += safe;
+          i++;
+          const delay = chars[i - 1] === "\n" ? 18 : (i % 9 === 0 ? 14 : 10);
+          typingTimer = setTimeout(step, delay);
+        } else {
+          els.response.innerHTML += `<span class="cursor"></span>`;
+          els.responseMeta.textContent = meta;
+        }
+      };
+      step();
+    }
+
+    function pushLog(scenario, personaName, mode, profile){
+      const item = document.createElement("div");
+      item.className = "log-item";
+      item.innerHTML = `
+        <small>${new Date().toLocaleTimeString()}</small>
+        <strong>${personaName} • ${mode}</strong><br>
+        <span>Risk ${profile.risk}% · Ease ${profile.socialEase}% · Opportunity ${opportunityLabel(profile)}</span><br>
+        <span>${escapeHtml(scenario.length > 120 ? scenario.slice(0, 120) + "…" : scenario)}</span>
+      `;
+      els.conversationLog.prepend(item);
+      while (els.conversationLog.children.length > 5) {
+        els.conversationLog.removeChild(els.conversationLog.lastChild);
+      }
+    }
+
+    function maybeUnlockSecret(scenario, profile, persona){
+      const s = scenario.toLowerCase();
+      const keywords = ["interview", "presentation", "conflict", "networking", "date"];
+      const hasKeyword = keywords.some(k => s.includes(k));
+
+      if (persona.id === "mysterious" || (profile.risk > 80 && hasKeyword)) {
+        els.secretBox.classList.add("show");
+        els.secretText.textContent =
+          persona.id === "mysterious"
+            ? "Mysterious mode reshapes tone: reveal less, imply more, and let curiosity do the work."
+            : "High-pressure social space detected. Shift to calm, precise, and minimal language.";
+      } else {
+        els.secretBox.classList.remove("show");
+      }
+    }
+
+    function generateAutoInsight(){
+      const scenarios = [
+        "I need to speak in a formal interview panel.",
+        "I’m trying to talk to someone new at a college event.",
+        "I need to settle a small conflict without making it worse."
+      ];
+      if (!els.scenario.value.trim()) {
+        els.scenario.value = scenarios[activePersonaIndex % scenarios.length];
+      }
+      updateInputs();
+      updateMetricsPreview();
+      updateReadRoom();
+    }
+
+    function pulseRadar(){
+      const x = 15 + Math.random() * 70;
+      const y = 15 + Math.random() * 70;
+      els.blip.style.left = `${x}%`;
+      els.blip.style.top = `${y}%`;
+    }
+
+    function randomScenario(){
+      els.scenario.value = randomScenarios[Math.floor(Math.random() * randomScenarios.length)];
+      updateMetricsPreview();
+      updateReadRoom();
+      pulseRadar();
+    }
+
+    function resetAll(){
+      activePersonaIndex = 1;
+      els.stress.value = 35;
+      els.energy.value = 72;
+      els.familiarity.value = 42;
+      els.stakes.value = 68;
+      els.crowd.value = 18;
+      els.scenario.value = "";
+      els.conversationLog.innerHTML = "";
+      els.secretBox.classList.remove("show");
+      setPersona(activePersonaIndex);
+      updateInputs();
+      updateMetricsPreview();
+      updateReadRoom();
+      els.responseMeta.textContent = "Idle";
+      els.response.innerHTML = `Choose a persona, adjust the context, then generate a response.<span class="cursor"></span>`;
+    }
+
+    function escapeHtml(str){
+      return str
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function cyclePersona(){
+      setPersona(activePersonaIndex + 1);
+      updateReadRoom();
+      generateAutoInsight();
+    }
+
+    function clockTick(){
+      const now = new Date();
+      els.clock.textContent = now.toLocaleTimeString();
+    }
+
+    // background animation
+    const canvas = document.getElementById("bg");
+    const ctx = canvas.getContext("2d");
+    let stars = [];
+
+    function resizeCanvas(){
+      canvas.width = window.innerWidth * devicePixelRatio;
+      canvas.height = window.innerHeight * devicePixelRatio;
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      stars = Array.from({length: Math.min(170, Math.floor(window.innerWidth / 10))}, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: 0.6 + Math.random() * 1.4,
+        v: 0.15 + Math.random() * 0.45,
+        a: 0.2 + Math.random() * 0.8
+      }));
+    }
+
+    function drawBg(){
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      const grd = ctx.createRadialGradient(
+        window.innerWidth * 0.2, window.innerHeight * 0.1, 20,
+        window.innerWidth * 0.5, window.innerHeight * 0.5, Math.max(window.innerWidth, window.innerHeight)
+      );
+      grd.addColorStop(0, "rgba(124,218,255,0.07)");
+      grd.addColorStop(0.35, "rgba(139,125,255,0.04)");
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+      for (const s of stars){
+        s.y += s.v;
+        s.a += (Math.random() - 0.5) * 0.02;
+        if (s.y > window.innerHeight + 10) {
+          s.y = -10;
+          s.x = Math.random() * window.innerWidth;
+        }
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(234,242,255,${clamp(s.a, 0.12, 0.92)})`;
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      requestAnimationFrame(drawBg);
+    }
+
+    // events
+    els.generateBtn.addEventListener("click", generateResponse);
+    els.surpriseBtn.addEventListener("click", randomScenario);
+    els.cycleBtn.addEventListener("click", cyclePersona);
+    els.resetBtn.addEventListener("click", resetAll);
+
+    [els.stress, els.energy, els.familiarity, els.stakes, els.crowd].forEach(input => {
+      input.addEventListener("input", () => {
+        updateInputs();
+        updateMetricsPreview();
+        updateReadRoom();
+      });
+    });
+
+    els.scenario.addEventListener("input", () => {
+      updateReadRoom();
+      updateMetricsPreview();
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+
+    // init
+    resizeCanvas();
+    drawBg();
+    setPersona(activePersonaIndex);
+    updateInputs();
+    updateMetricsPreview();
+    updateReadRoom();
+    clockTick();
+    setInterval(clockTick, 1000);
+    setInterval(() => {
+      if (Math.random() > 0.55) pulseRadar();
+    }, 2200);
+
+    // seed one log
+    els.conversationLog.innerHTML = `
+      <div class="log-item">
+        <small>${new Date().toLocaleTimeString()}</small>
+        <strong>System Online</strong><br>
+        <span>Persona engine initialized. Adjust the context and generate a response.</span>
+      </div>
+    `;
+  </script>
+</body>
+</html>
